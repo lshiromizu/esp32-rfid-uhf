@@ -11,12 +11,21 @@
     "idf.openOcdConfigs": [
         "board/esp32c3-bridge.cfg"
     ],
-    "idf.portWin": "COM20",
+    "idf.portWin": "COM13",
     "idf.pythonBinPathWin": "C:\\Espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Espressif",
     "files.associations": {
         "rfid_module.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "stdbool.h": "c",
+        "string.h": "c",
+        "stdio.h": "c",
+        "stdint.h": "c",
+        "uart.h": "c",
+        "cstdint": "c",
+        "esp_rom_gpio.h": "c",
+        "sdkconfig.h": "c",
+        "variant": "c"
     },
     "idf.flashType": "UART"
 }

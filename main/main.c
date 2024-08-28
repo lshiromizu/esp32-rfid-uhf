@@ -68,14 +68,18 @@ void app_main(void)
         if (buttonPressed == true)
         {
             printf("Button pressed\r\n");
+            set_power(6.0, false);
             float current_power = get_power();
-            printf("Current power: %.1f dBm\n", current_power);
+            printf("Current power: %.1f dBm\r\n", current_power);
+
+            set_RF_mode(3, false);
+            int current_mode = get_RF_mode();
+            printf("Current mode: %d \r\n", current_mode);
             buttonPressed = false;
             gpio_set_level(ENABLE_GPIO_PIN, 0);
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
-    
-    
+
 }
