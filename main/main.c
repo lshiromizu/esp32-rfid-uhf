@@ -67,8 +67,8 @@ void app_main(void)
     default_config();
     read_stop();
 
-    size_t cycles = 20;
-    tag_t inventory[cycles];
+    size_t cycles = 50;
+    tag_t *inventory = (tag_t *)malloc(cycles * sizeof(tag_t));
 
     while (1)
     {
