@@ -8,7 +8,7 @@
 #define UART_TX_PIN         4
 #define UART_RX_PIN         5
 #define UART_BAUD_RATE      115200
-#define UART_BUFFER_SIZE    1024*2
+#define UART_BUFFER_SIZE    2048
 
 #define BUTTON_GPIO_PIN     GPIO_NUM_0
 #define ENABLE_GPIO_PIN     GPIO_NUM_1
@@ -37,7 +37,7 @@ void init()
     ESP_ERROR_CHECK(uart_set_pin(uart_num, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
     QueueHandle_t uart_queue;
-    ESP_ERROR_CHECK(uart_driver_install(uart_num, UART_BUFFER_SIZE, UART_BUFFER_SIZE, 10, &uart_queue, 0));
+    ESP_ERROR_CHECK(uart_driver_install(uart_num, 4*UART_BUFFER_SIZE, UART_BUFFER_SIZE, 10, &uart_queue, 0));
 
     gpio_config_t button_conf;
     // configure button pin as input
@@ -63,6 +63,13 @@ void app_main(void)
 {
     init();
     printf("code running\r\n");
+
+    default_config();
+    read_stop();
+
+    size_t cycles = 20;
+    tag_t inventory[cycles];
+
     while (1)
     {
         if (buttonPressed == true)
@@ -72,12 +79,18 @@ void app_main(void)
             float current_power = get_power();
             printf("Current power: %.1f dBm\r\n", current_power);
 
-            set_RF_mode(3, false);
-            int current_mode = get_RF_mode();
-            printf("Current mode: %d \r\n", current_mode);
+            read_start();
+            int tags_count = get_inventory(inventory, cycles);
+
+            printf("%d \r\n", tags_count);
+            for (size_t i = 0; i < tags_count; i++)
+            {
+                print_cmd(inventory[i].EPC, inventory[i].epc_lenght);
+                printf("%f \r\n", inventory[i].RSSI);
+            }
+
             buttonPressed = false;
             gpio_set_level(ENABLE_GPIO_PIN, 0);
-            vTaskDelay(100 / portTICK_PERIOD_MS);
         }
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }

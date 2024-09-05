@@ -14,7 +14,7 @@
 #define TIMEOUT 10
 
 
-int send_command(const uint8_t *cmd, size_t cmd_len, uint8_t *response) {
+int send_command(const uint8_t *cmd, size_t cmd_len, uint8_t *response, time_t timeout) {
     uint8_t tx_buffer[BUF_SIZE];
     size_t full_len = cmd_len + 7; // add SOF(2) + len(2) + CRC(1) + EOF(2)
 
@@ -32,7 +32,10 @@ int send_command(const uint8_t *cmd, size_t cmd_len, uint8_t *response) {
     tx_buffer[5 + cmd_len] = 0x0D;
     tx_buffer[6 + cmd_len] = 0x0A;
 
+    // Debug: Print sent command
     print_cmd(tx_buffer, full_len);
+
+    uart_flush(UART_NUM);
     int tx_bytes = uart_write_bytes(UART_NUM, tx_buffer, full_len);
 
     if (tx_bytes != full_len) {
@@ -41,12 +44,11 @@ int send_command(const uint8_t *cmd, size_t cmd_len, uint8_t *response) {
     }
 
     // Receive the response
-    int rx_bytes = uart_read_bytes(UART_NUM, response, BUF_SIZE, pdMS_TO_TICKS(100));
-    if (rx_bytes < 0) {
+    int rx_bytes = uart_read_bytes(UART_NUM, response, BUF_SIZE, pdMS_TO_TICKS(timeout));
+    if (rx_bytes == 0) {
         ESP_LOGE("UART", "Failed to read response");
-        return -1;
+        return 0;
     }
-    uart_flush(UART_NUM);
 
     return rx_bytes;
 }
@@ -64,7 +66,7 @@ void set_power(int pwr, bool save) {
     cmd[6] = cmd[4]; // Low byte of write power, same as read power
 
     uint8_t response[BUF_SIZE];
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 100);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
     }
@@ -81,7 +83,7 @@ float get_power() {
     uint8_t cmd[1] = {0x12};
     uint8_t response[BUF_SIZE];
 
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 100);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
         return -1;
@@ -96,7 +98,7 @@ float get_power() {
 }
 
 void set_RF_mode(int mode, bool save){
-    /*    Set device RF link mode.
+    /*  Set device RF link mode.
 
         Parameters: 
         mode (int): 0 -> DSB_ASK /FM0/ 40 KHz
@@ -133,7 +135,7 @@ void set_RF_mode(int mode, bool save){
     }
     
     uint8_t response[BUF_SIZE];
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 10);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
     }
@@ -152,7 +154,7 @@ int get_RF_mode(){
     cmd[2] = 0x00;
 
     uint8_t response[BUF_SIZE];
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 10);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
         return -1;
@@ -163,68 +165,117 @@ int get_RF_mode(){
     return (int)response[7];
 }
 
-int read_start(uint16_t cycles, tag_t *inventory) {
+tag_t read_tag(uint16_t timeout){
     uint8_t cmd[3];
-    cmd[0] = 0x82; // Command for reading
-    cmd[1] = (cycles >> 8) & 0xFF;
-    cmd[2] = cycles & 0xFF;
+    cmd[0] = 0x80; // Command for reading
+    cmd[1] = (timeout >> 8) & 0xFF;
+    cmd[2] = timeout & 0xFF;
 
-    uint8_t response[cycles][BUF_SIZE];
-    send_command(cmd, sizeof(cmd), response[0]);
+    uint8_t response[BUF_SIZE];
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, (time_t)timeout);
+    
+    // Debug: Print the received bytes
+    print_cmd(response, rx_bytes);
 
-    for (size_t i = 0; i < (cycles - 1); i++)
+    tag_t tag = {
+    .EPC = {0x00},
+    .epc_lenght = 0,
+    .RSSI = 0,
+    .count = 0
+    };
+
+    if (rx_bytes == 0)
     {
-        uart_read_bytes(UART_NUM, response[i+1], BUF_SIZE, pdMS_TO_TICKS(10));
+        ESP_LOGE("RFID", "No tag detected");
+        return tag;
     }
-    read_stop();
 
-    int tags_count = 0;  // inventory size
-    for (size_t i = 0; i < cycles; i++) {
-        tag_t tag = parse_tag_data(response[i]);
-        int j = 0;
-        while (j <= tags_count){
-            if (memcmp(inventory[j].EPC, tag.EPC, sizeof(tag.EPC)) == 0) {
-                if (tag.RSSI > inventory[j].RSSI)
-                {
-                    inventory[j].RSSI = tag.RSSI;
-                }
-                inventory[j].count++;
-                break;
-            }
-            if (j == tags_count){
-                inventory[j] = tag;
-                inventory[j].count = 1;
-                tags_count++;
-                break;
-            }
-            j++;
-        }
+    tag = parse_tag_data(response);
+
+    return tag;
+}
+
+void read_start() {
+    uint8_t start_cmd[10] = {0xA5, 0x5A, 0x00, 0x0A, 0x82, 0x00, 0x00, 0x88, 0x0D, 0x0A};
+
+    uart_flush(UART_NUM);
+    int tx_bytes = uart_write_bytes(UART_NUM, start_cmd, sizeof(start_cmd));
+
+    if (tx_bytes != sizeof(start_cmd)) {
+        ESP_LOGE("UART", "Failed to send start command");
     }
-    return tags_count;
 }
 
 void read_stop(){
     uint8_t cmd[1] = {0x8C};
     uint8_t response[BUF_SIZE];
 
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 100);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
     }
-    // Debug: Print the received bytes
-    //print_cmd(response, rx_bytes);
-    if (response[5] == 0x01){
-        printf("Done reading. \r\n");
-    }else{
-        printf("Error. \r\n");
-    }
 }
 
-void software_reset(){
+int get_inventory(tag_t *inventory, size_t inv_size){
+
+    uint8_t response[inv_size*25];
+    int rx_bytes = 0;
+    printf("%d \r\n", rx_bytes);
+    while (rx_bytes <= inv_size*25)
+    {
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM, (size_t*)&rx_bytes));
+    }
+    printf("%d \r\n", rx_bytes);
+    rx_bytes = uart_read_bytes(UART_NUM, response, rx_bytes, 100);
+    print_cmd(response, rx_bytes);
+    int tags_count = 0;  // inventory size
+    size_t index = 0;
+    while (index < rx_bytes && (int)(index/25) < inv_size){
+        if (response[index] == 0xA5 && response[index + 1] == 0x5A) {   // Search for SOF
+            uint16_t cmd_len = (response[index + 2] << 8) | response[index + 3];
+            if ((index + cmd_len) >= rx_bytes){
+                break;
+            }
+            uint8_t data[(size_t)cmd_len];
+            for (size_t i = 0; i < (size_t)cmd_len; i++) {
+                data[i] = response[index + i];
+            }
+            print_cmd(data, (size_t)cmd_len);
+            tag_t tag = parse_tag_data(data);
+            int j = 0;
+            while (j <= tags_count){    // Search for tag in inventory
+                if (memcmp(inventory[j].EPC, tag.EPC, sizeof(tag.EPC)) == 0) {
+                    if (tag.RSSI > inventory[j].RSSI)
+                    {
+                        inventory[j].RSSI = tag.RSSI;   // Keep the greater RSSI
+                    }
+                    inventory[j].count++;
+                    break;
+                }
+                if (j == tags_count){
+                    inventory[j] = tag;     // Add tag in inventory
+                    inventory[j].count = 1;
+                    tags_count++;
+                    break;
+                }
+                j++;
+            }
+            index = index + (size_t)cmd_len;    // Skipp the rest of the response
+        }else{
+            index++;
+        }
+    }
+
+    read_stop();
+
+    return tags_count;
+}
+
+void default_config(){
     uint8_t cmd[1] = {0x2A};
     uint8_t response[BUF_SIZE];
 
-    int rx_bytes = send_command(cmd, sizeof(cmd), response);
+    int rx_bytes = send_command(cmd, sizeof(cmd), response, 100);
     if (rx_bytes == 0) {
         ESP_LOGE("UART", "No response received or error occurred");
     }
@@ -248,6 +299,7 @@ tag_t parse_tag_data(uint8_t data[]) {
     {
         parsed_data.EPC[i]=data[i+7];
     }
+    parsed_data.epc_lenght = epc_length;
     int16_t rssi_hex = (data[epc_length+7] << 8) | data[epc_length+8];
     parsed_data.RSSI = (float)rssi_hex / 10.0;
 
