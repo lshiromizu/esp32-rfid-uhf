@@ -1,7 +1,7 @@
 {
     "version":            "1.1",
     "project_name":       "esp32-rfid-uhf",
-    "project_version":    "f398f99-dirty",
+    "project_version":    "6dfcb8e-dirty",
     "project_path":       "C:/Users/lshir/esp32-rfid-uhf",
     "idf_path":           "C:/Users/lshir/esp/v5.2.1/esp-idf",
     "build_dir":          "C:/Users/lshir/esp32-rfid-uhf/build",
