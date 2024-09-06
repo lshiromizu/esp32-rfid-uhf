@@ -24,7 +24,9 @@ tag_t read_tag(uint16_t timeout);
 void read_start();
 void read_stop();
 int get_inventory(tag_t *inventory, size_t inv_size);
+int stop_get_inventory(tag_t *inventory, size_t inv_size);
 void default_config();
+tag_t* tag_select(tag_t* inventory, size_t tags_count);
 
 uint8_t calculate_crc(const uint8_t *data, size_t length);
 tag_t parse_tag_data(uint8_t data[]);

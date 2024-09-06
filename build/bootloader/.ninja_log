@@ -246,3 +246,16 @@
 714	1190	7472823312572338	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/.bin_timestamp	61d9befc621b40d7
 1190	1309	0	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
 1190	1309	0	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+79	1622	7473494260533952	esp-idf/esp_bootloader_format/CMakeFiles/__idf_esp_bootloader_format.dir/esp_bootloader_desc.c.obj	461ee901c7cce56f
+1623	2126	7473494265313789	esp-idf/esp_bootloader_format/libesp_bootloader_format.a	76f982457e173226
+2126	2948	7473494273723842	bootloader.elf	d2c19737b83e34b1
+2948	3379	7473494278171079	.bin_timestamp	61d9befc621b40d7
+2948	3379	7473494278171079	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/.bin_timestamp	61d9befc621b40d7
+3379	3525	0	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+3379	3525	0	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+33	170	0	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+33	170	0	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+63	310	0	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+63	310	0	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+31	166	0	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639
+31	166	0	C:/Users/lshir/esp32-rfid-uhf/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	98841e57f8af8639

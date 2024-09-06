@@ -57,7 +57,7 @@ void init()
     enable_conf.pin_bit_mask = (1ULL << ENABLE_GPIO_PIN); // Select pin
     enable_conf.mode = GPIO_MODE_OUTPUT; // Set as output mode
     gpio_config(&enable_conf);
-};
+}
 
 void app_main(void)
 {
@@ -67,7 +67,7 @@ void app_main(void)
     default_config();
     read_stop();
 
-    size_t cycles = 50;  // Larger number of cycles
+    size_t cycles = 50;
     tag_t *inventory = (tag_t *)malloc(cycles * sizeof(tag_t));
 
     while (1)
@@ -80,7 +80,7 @@ void app_main(void)
             printf("Current power: %.1f dBm\r\n", current_power);
 
             read_start();
-            int tags_count = get_inventory(inventory, cycles);
+            int tags_count = stop_get_inventory(inventory, cycles);
 
             printf("%d \r\n", tags_count);
             for (size_t i = 0; i < tags_count; i++)
