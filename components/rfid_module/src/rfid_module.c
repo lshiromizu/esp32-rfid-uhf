@@ -33,7 +33,7 @@ int send_command(const uint8_t *cmd, size_t cmd_len, uint8_t *response, time_t t
     tx_buffer[6 + cmd_len] = 0x0A;
 
     // Debug: Print sent command
-    print_cmd(tx_buffer, full_len);
+    //print_cmd(tx_buffer, full_len);
 
     uart_flush(UART_NUM);
     int tx_bytes = uart_write_bytes(UART_NUM, tx_buffer, full_len);
@@ -71,10 +71,8 @@ void set_power(int pwr, bool save) {
         ESP_LOGE("UART", "No response received or error occurred");
     }
 
-    if (response[5] == 0x01){
-        printf("Power set. \r\n");
-    }else{
-        printf("Error. \r\n");
+    if (response[5] != 0x01){
+        ESP_LOGE("RFID", "Power output not configured properly");
     }
 
 }
@@ -140,10 +138,8 @@ void set_RF_mode(int mode, bool save){
         ESP_LOGE("UART", "No response received or error occurred");
     }
 
-    if (response[5] == 0x01){
-        printf("RF mode set. \r\n");
-    }else{
-        printf("Error. \r\n");
+    if (response[5] != 0x01){
+        ESP_LOGE("RFID", "RF link mode not configured properly");
     }
 }
 
@@ -175,7 +171,7 @@ tag_t read_tag(uint16_t timeout){
     int rx_bytes = send_command(cmd, sizeof(cmd), response, (time_t)timeout);
     
     // Debug: Print the received bytes
-    print_cmd(response, rx_bytes);
+    //print_cmd(response, rx_bytes);
 
     tag_t tag = {
     .EPC = {0x00},
@@ -217,17 +213,11 @@ void read_stop(){
 }
 
 int get_inventory(tag_t *inventory, size_t inv_size){
-
     uint8_t response[inv_size*25];
     int rx_bytes = 0;
-    printf("%d \r\n", rx_bytes);
-    while (rx_bytes <= inv_size*25)
-    {
-        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM, (size_t*)&rx_bytes));
-    }
-    printf("%d \r\n", rx_bytes);
+
     rx_bytes = uart_read_bytes(UART_NUM, response, rx_bytes, 100);
-    print_cmd(response, rx_bytes);
+
     int tags_count = 0;  // inventory size
     size_t index = 0;
     while (index < rx_bytes && (int)(index/25) < inv_size){
@@ -240,7 +230,59 @@ int get_inventory(tag_t *inventory, size_t inv_size){
             for (size_t i = 0; i < (size_t)cmd_len; i++) {
                 data[i] = response[index + i];
             }
-            print_cmd(data, (size_t)cmd_len);
+
+            tag_t tag = parse_tag_data(data);
+            int j = 0;
+            while (j <= tags_count){    // Search for tag in inventory
+                if (memcmp(inventory[j].EPC, tag.EPC, sizeof(tag.EPC)) == 0) {
+                    if (tag.RSSI > inventory[j].RSSI)
+                    {
+                        inventory[j].RSSI = tag.RSSI;   // Keep the greater RSSI
+                    }
+                    inventory[j].count++;
+                    break;
+                }
+                if (j == tags_count){
+                    inventory[j] = tag;     // Add tag in inventory
+                    inventory[j].count = 1;
+                    tags_count++;
+                    break;
+                }
+                j++;
+            }
+            index = index + (size_t)cmd_len;    // Skipp the rest of the response
+        }else{
+            index++;
+        }
+    }
+    return tags_count;
+}
+
+int stop_get_inventory(tag_t *inventory, size_t inv_size){
+
+    uint8_t response[inv_size*25];
+    int rx_bytes = 0;
+    
+    while (rx_bytes <= inv_size*25)
+    {
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM, (size_t*)&rx_bytes));
+    }
+
+    rx_bytes = uart_read_bytes(UART_NUM, response, rx_bytes, 100);
+
+    int tags_count = 0;  // inventory size
+    size_t index = 0;
+    while (index < rx_bytes && (int)(index/25) < inv_size){
+        if (response[index] == 0xA5 && response[index + 1] == 0x5A) {   // Search for SOF
+            uint16_t cmd_len = (response[index + 2] << 8) | response[index + 3];
+            if ((index + cmd_len) >= rx_bytes){
+                break;
+            }
+            uint8_t data[(size_t)cmd_len];
+            for (size_t i = 0; i < (size_t)cmd_len; i++) {
+                data[i] = response[index + i];
+            }
+
             tag_t tag = parse_tag_data(data);
             int j = 0;
             while (j <= tags_count){    // Search for tag in inventory
@@ -282,6 +324,33 @@ void default_config(){
     // Debug: Print the received bytes
     //print_cmd(response, rx_bytes);
 }
+
+tag_t* tag_select(tag_t* inventory, size_t tags_count) {
+    if (tags_count == 0) {
+        return NULL;  // No tags to select from
+    }
+
+    tag_t* tag = &inventory[0];  // Start by assuming the first tag is the nearest
+
+    for (size_t i = 1; i < tags_count; i++) {
+        tag_t* current_tag = &inventory[i];
+
+        // Compare count first
+        if (current_tag->count > tag->count) {
+            tag = current_tag;
+        } 
+        // Compare RSSI
+        else if (current_tag->count == tag->count) {
+            if (current_tag->RSSI > tag->RSSI) {
+                tag = current_tag;
+            }
+        }
+        // If both count and RSSI are equal, the first one in the inventory stays the nearest
+    }
+
+    return tag;
+}
+
 
 uint8_t calculate_crc(const uint8_t *data, size_t length) {
     uint8_t crc = 0;
